@@ -53,5 +53,5 @@ incorrect reference placement or missed tracking can make them inaccurate.
 V11 clears previous numbers whenever a new video, calibration or club is used.
 It does not manufacture values when required evidence is unavailable.
 
-Golfboy interface reference: https://golfboy.jp/en/
+
 No third-party logos, screenshots, code or proprietary engine are included.
