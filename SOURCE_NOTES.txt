@@ -1,0 +1,27 @@
+BURKESHOT v9 — SOURCE / LICENSING NOTES
+
+The graphics source in src/ was written for this Burkeshot update.
+range-hd.bundle.js includes Three.js 0.170.0 (MIT), its Sky addon and the original
+Burkeshot scene. Three.js attribution/license is in assets/THREE-LICENSE.txt;
+bundler-generated notices are in range-hd.bundle.js.LEGAL.txt.
+
+The three PNGs in assets/ are original generated turf and tree imagery, not
+GSPro assets. Their origins and prompts are recorded in assets/ASSET_NOTES.md.
+Geometry, placement, scalar sand grain, grass blades and shading are generated
+in code. The renderer does not download remote assets or execute CDN scripts.
+
+GSPro (https://gsprogolf.com/) is a product-quality inspiration only.
+No GSPro source, branding, course files, Unity assets or artwork are included.
+This update does not claim identical fidelity, physics or compatibility.
+
+SmartTrack Golf and the user-supplied App Store screenshots informed the V9
+phone-first navigation, overlay-metric and session-list direction only. No
+SmartTrack Golf logo, artwork, screenshots, source code or private assets are
+included. Burkeshot keeps its own name, controls and visual identity.
+
+Preserved research notes from earlier Burkeshot versions:
+- Camera workflow reference: https://github.com/samo2491/GolfSimulator
+  Repository states MIT License.
+- Simulator UX reference: https://github.com/OpenGolfSim/fuse
+  FUSE is PolyForm Noncommercial License 1.0.0.
+- No FUSE source code is included in this Burkeshot build.

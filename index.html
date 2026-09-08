@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BURKESHOT v11 — Calibrated Video Estimates</title>
+<link rel="stylesheet" href="style.css?v=11">
+<link rel="stylesheet" href="v10.css?v=11">
+<link rel="stylesheet" href="calibration.css?v=11">
+</head>
+<body>
+<div class="app-shell">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">B</div>
+      <div><b>BURKESHOT</b><span>PRACTICE SIMULATOR</span></div>
+    </div>
+
+    <nav class="main-tabs">
+      <button data-page="simulator">01 · COURSE</button>
+      <button class="active" data-page="camera">02 · SHOT</button>
+      <button data-page="session">03 · RECORDS</button>
+      <button data-page="coach">04 · SWING</button>
+
+    </nav>
+
+    <div class="top-right">
+      <select id="clubSelect" aria-label="Golf club">
+        <option value="driver">Driver</option><option value="3w">3 Wood</option><option value="5w">5 Wood</option><option value="hybrid">Hybrid</option>
+        <option value="4i">4 Iron</option><option value="5i">5 Iron</option><option value="6i">6 Iron</option><option value="7i" selected>7 Iron</option>
+        <option value="8i">8 Iron</option><option value="9i">9 Iron</option><option value="pw">PW</option><option value="gw">GW</option><option value="sw">SW</option><option value="lw">LW</option>
+      </select>
+      <div class="ready"><i></i><div><b id="readyTitle">READY</b><span id="readySub">LOAD A SHOT</span></div></div>
+    </div>
+  </header>
+
+  <!-- CAMERA / SMARTTRACK-STYLE HOME -->
+  <main id="page-camera" class="page active">
+    <section class="camera-layout">
+      <section class="viewer-card">
+        <div class="viewer-top">
+          <div>
+            <b id="cameraHeadline">SHOT · VIDEO ANALYSIS</b>
+            <span id="cameraMessage">Load a video to find impact and review the ball trace. True launch data requires a suitable camera view.</span>
+          </div>
+          <button id="setupToggle">SETUP GUIDE</button>
+        </div>
+
+        <div class="video-stage">
+          <video id="video" playsinline muted controls></video>
+          <img id="impactStill" alt="Impact frame">
+          <canvas id="trackingCanvas"></canvas>
+
+          <div id="smartShotBar" class="smart-shot-bar idle" aria-live="polite">
+            <div class="smart-shot-title"><span id="smartShotNo">NEXT SHOT</span><b id="smartClub">7 IRON</b></div>
+            <div><span>MODELLED CARRY</span><b id="smartCarry">—</b><em>yd</em></div>
+            <div><span>BALL SPEED</span><b id="smartBall">—</b><em>mph</em></div>
+            <div><span>LAUNCH ANGLE</span><b id="smartLaunch">—</b><em>°</em></div>
+          </div>
+
+          <div id="setupGuide" class="setup-guide">
+            <div class="guide-grid"></div>
+            <div class="guide-ball"><i></i><span>BALL ZONE</span></div>
+            <div class="guide-copy"><b>MEASUREMENT SETUP</b><span>Use a fixed side-on camera with the ball's initial flight moving across the image. Behind-the-player footage supports trace review, not calibrated speed. Select the actual recording mode below.</span></div>
+          </div>
+
+          <div id="cameraState" class="camera-state">
+            <i></i><div><b>SET</b><span>WAITING FOR VIDEO</span></div>
+          </div>
+
+          <div id="analysisLoader" class="analysis-loader" hidden>
+            <div class="spinner"></div>
+            <b>ANALYSING SHOT</b>
+            <span id="analysisStage">Finding golf ball…</span>
+            <div class="progress"><i id="progressBar"></i></div>
+          </div>
+
+          <div id="cameraWarning" class="camera-warning" hidden></div>
+        </div>
+
+        <div class="replay-toolbar">
+          <button id="replayImpact" disabled>Replay impact</button>
+          <button id="jumpImpact" disabled>Impact frame</button>
+          <button id="prevFrame" disabled aria-label="Previous video frame">−1 frame</button>
+          <button id="nextFrame" disabled aria-label="Next video frame">+1 frame</button>
+          <label>Playback <select id="playbackRate"><option value="0.5">0.5×</option><option value="1" selected>1× export</option><option value="2">2×</option><option value="8">8×</option></select></label>
+          <span id="frameCounter">No video loaded</span>
+        </div>
+        <div class="capture-controls">
+          <div class="control-group">
+            <span>CAPTURE</span>
+            <select id="captureMode">
+              <option value="240_slo" selected>240 fps slow motion · confirm mapping</option>
+              <option value="120_slo">120 fps slow motion · confirm mapping</option>
+              <option value="original">Original real-time · use file fps</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <span>BALL</span>
+            <select id="ballProfile">
+              <option value="1.00">Course ball</option>
+              <option value="0.96">Premium range</option>
+              <option value="0.92">Range ball</option>
+            </select>
+          </div>
+
+          <label class="choose-video" for="fileInput">CHOOSE VIDEO</label>
+          <input id="fileInput" type="file" accept="video/*,.mov,.MOV,.mp4,.MP4,.m4v,.M4V">
+
+          <button id="test240">TEST 240 SLO-MO</button>
+          <button id="test120">TEST 120 REAL-TIME</button>
+        </div>
+      </section>
+
+      <aside class="result-panel">
+        <div id="measurementState" class="measurement-state" hidden><b id="measurementTitle"></b><span id="measurementHelp"></span></div>
+        <div class="result-head">
+          <div><span>LATEST SHOT</span><b id="resultClub">7 IRON</b></div>
+          <div class="quality-pill"><i></i><span id="quality">—</span></div>
+        </div>
+
+        <section class="hero-metric">
+          <span id="cameraMetricLabel">EST. CARRY</span>
+          <div><strong id="carry">—</strong><em>yd</em></div>
+          <small id="carryLabel">Camera estimate</small>
+        </section>
+
+        <section class="primary-metrics">
+          <article>
+            <span>BALL SPEED</span>
+            <strong id="ballSpeed">—</strong>
+            <em>mph</em>
+          </article>
+          <article>
+            <span>LAUNCH ANGLE</span>
+            <strong id="launch">—</strong>
+            <em>°</em>
+          </article>
+        </section>
+
+        <section class="secondary-metrics">
+          <div><span>CLUB SPEED</span><b id="clubSpeed">— mph</b></div>
+          <div><span>SMASH</span><b id="smash">—</b></div>
+          <div><span>ATTACK</span><b id="attack">—°</b></div>
+          <div><span>TRACE</span><b id="tracePoints">— pts</b></div>
+        </section>
+
+        <div class="detect-row">
+          <div><span>BALL LOCK</span><b id="ballLock">—</b></div>
+          <div><span>IMPACT</span><b id="impactLock">—</b></div>
+          <div><span>CAMERA</span><b id="geometry">—</b></div>
+        </div>
+
+        <div id="resultNote" class="result-note">Only values that pass BURKESHOT's confidence checks are shown.</div>
+
+        <div class="result-actions">
+          <button id="reanalyseBtn">RE-ANALYSE</button><button id="viewRangeBtn">OPEN COURSE</button>
+          <button id="resetBallZone">RESET BALL ZONE</button><button id="manualBallBtn">SELECT BALL</button>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <!-- SESSION -->
+  <main id="page-session" class="page">
+    <section class="session-grid">
+      <div class="session-header">
+        <div><span>PRACTICE HISTORY</span><h1>My Session</h1></div>
+        <button id="clearSession">CLEAR SESSION</button>
+      </div>
+
+      <div class="session-tabs" role="tablist" aria-label="Session view">
+        <button class="active" data-session-view="list" role="tab" aria-selected="true">List</button>
+        <button data-session-view="clubs" role="tab" aria-selected="false">Club distances</button>
+        <button data-session-view="graph" role="tab" aria-selected="false">Graph</button>
+      </div>
+
+      <section class="summary-cards">
+        <article><span>SHOTS</span><strong id="sessionShots">0</strong></article>
+        <article><span>AVG BALL SPEED</span><strong id="avgBall">—</strong><em>mph</em></article>
+        <article><span>AVG CARRY</span><strong id="avgCarry">—</strong><em>yd</em></article>
+        <article><span>BEST CARRY</span><strong id="bestCarry">—</strong><em>yd</em></article>
+      </section>
+
+      <section class="chart-card" data-session-panel="graph" hidden>
+        <div class="card-head"><div><b>BALL SPEED × LAUNCH ANGLE</b><span>Measured shots only</span></div></div>
+        <canvas id="scatterCanvas"></canvas>
+      </section>
+
+      <section class="club-card" data-session-panel="clubs" hidden>
+        <div class="card-head"><div><b>CLUB REFERENCES</b><span>Your averages from saved shots</span></div></div>
+        <div id="clubAverages" class="club-table"></div>
+      </section>
+
+      <section class="history-card" data-session-panel="list">
+        <div class="card-head"><div><b>SHOT HISTORY</b><span id="shotCount">0 shots</span></div></div>
+        <div id="historyList" class="shot-list"></div>
+      </section>
+    </section>
+  </main>
+
+  <!-- COACH -->
+  <main id="page-coach" class="page">
+    <section class="coach-layout">
+      <div class="coach-video-card">
+        <div class="page-title"><span>BURKESHOT COACH</span><h1>Swing Analysis</h1></div>
+        <div class="coach-video-wrap">
+          <video id="coachVideo" playsinline muted controls></video>
+          <div id="coachEmpty" class="coach-empty"><b>LOAD YOUR SWING</b><span>Down-the-line or face-on video.</span></div>
+          <div id="coachLoader" class="coach-loader" hidden><div class="spinner"></div><b>ANALYSING SWING</b><span>Finding swing phases and body checkpoints…</span></div>
+        </div>
+        <div class="coach-controls">
+          <select id="coachView"><option value="dtl" selected>Down The Line</option><option value="face_on">Face On</option></select>
+          <select id="coachHand"><option value="right" selected>Right handed</option><option value="left">Left handed</option></select>
+          <label for="coachFile">CHOOSE SWING</label>
+          <input id="coachFile" type="file" accept="video/*,.mov,.MOV,.mp4,.MP4,.m4v,.M4V">
+        </div>
+      </div>
+
+      <aside class="coach-results">
+        <div class="coach-score"><span>SWING SCORE</span><strong id="coachScore">—</strong><em id="coachEngine">WAITING</em></div>
+        <div id="coachNote" class="coach-note">Load a swing to begin.</div>
+        <div id="coachPhases" class="coach-phases"></div>
+        <h3>CHECKPOINTS</h3>
+        <div id="coachCheckpoints" class="coach-checkpoints"></div>
+        <h3>PRIORITY COACHING</h3>
+        <ol id="coachTips" class="coach-tips"><li>Load a swing video.</li></ol>
+      </aside>
+    </section>
+  </main>
+
+  <!-- Full-screen practice surface. The renderer uses metres internally. -->
+  <main id="page-simulator" class="page">
+    <section class="sim-wrap" aria-label="Practice range">
+      <canvas id="rangeCanvas" aria-label="Interactive three dimensional golf range"></canvas>
+      <div id="rangeLabels" class="range-labels" aria-hidden="true"></div>
+      <div class="range-heading"><span>BURKESHOT · MAGNOLIA COLLECTION</span><h1>Magnolia Practice</h1><p>Augusta-inspired landscape · Original layout · No wind</p></div>
+      <div class="range-tools"><button id="rangeSettings" aria-expanded="false" aria-controls="rangeOptions">Range settings</button><button id="fullscreenBtn" aria-label="Toggle fullscreen">⛶</button></div>
+      <div id="rangeOptions" class="range-options" hidden>
+        <label>Graphics<select id="graphicsQuality"><option value="auto">Auto · fit display</option><option value="1080">1080p · fit within 1920 × 1080</option><option value="4k" selected>4K · fit within 3840 × 2160</option></select></label>
+        <p id="graphicsStatus" class="graphics-status">Starting renderer…</p>
+        <button id="save4kBtn" disabled>Save 4K range image</button>
+        <label>Distance units<select id="rangeUnits"><option value="m">Metres</option><option value="yd">Yards</option></select></label>
+        <label>Target distance<select id="targetSelect"><option value="100">100 yd</option><option value="150" selected>150 yd</option><option value="200">200 yd</option><option value="250">250 yd</option></select></label>
+        <label class="check-label"><input id="traceToggle" type="checkbox" checked> Show shot tracer</label>
+        <button id="resetRangeBtn">Clear range view</button>
+      </div>
+      <aside class="target-card"><span>TARGET</span><div><strong id="targetDistance">137</strong><em class="range-unit">m</em></div><p>To the flag <b>↗</b></p></aside>
+      <aside class="range-minimap"><div><span>RANGE MAP</span><span id="mapScale">320 m</span></div>
+        <svg id="miniMap" viewBox="0 0 160 250" role="img" aria-label="Overhead range and shot landing position">
+          <rect width="160" height="250" fill="#173328"/>
+          <path d="M66 233 C35 192 54 143 38 103 C19 56 50 16 81 12 C114 14 143 53 121 98 C102 134 126 183 91 233Z" fill="#3d6941"/>
+          <path d="M70 228 Q58 180 66 140 T76 33 L90 33 Q112 85 92 134 T88 228Z" fill="#548151"/>
+          <ellipse cx="28" cy="105" rx="17" ry="28" fill="#356d76"/>
+          <g fill="#83a66a"><ellipse cx="79" cy="161" rx="14" ry="10"/><ellipse cx="84" cy="127" rx="16" ry="10"/><ellipse cx="79" cy="94" rx="14" ry="9"/><ellipse cx="84" cy="60" rx="13" ry="9"/></g>
+          <g fill="#cbbb92"><ellipse cx="59" cy="134" rx="7" ry="11"/><ellipse cx="102" cy="90" rx="7" ry="10"/></g>
+          <path id="mapTrace" d="" fill="none" stroke="#f8bc4a" stroke-width="2"/>
+          <path d="M80 229 L80 27" fill="none" stroke="#ffffff55" stroke-dasharray="3 5"/>
+          <circle cx="80" cy="229" r="4" fill="white"/><circle id="mapLanding" cx="80" cy="229" r="4" fill="#f8bc4a" visibility="hidden"/>
+          <g id="mapTarget"><path d="M80 127 v-16 l13 4 -13 4" fill="#dfff65" stroke="#dfff65" stroke-width="1.5"/></g>
+        </svg><span class="map-caption">TEE <b>↑</b></span>
+      </aside>
+      <div class="range-shot-status"><span id="rangeSource">NO SHOT LOADED</span><p id="rangeHint">Load a camera video or try a demo shot.</p></div>
+      <div class="range-bottom">
+        <div class="range-commandbar">
+          <div class="sim-cameras" role="group" aria-label="Range camera"><button class="active" data-view="tee">Tee</button><button data-view="follow">Follow</button><button data-view="downrange">Landing</button></div>
+          <div class="aim-control"><button id="aimLeft" aria-label="Aim left">−</button><span>AIM <b id="aimValue">0°</b></span><button id="aimRight" aria-label="Aim right">+</button></div>
+          <div class="range-actions"><button id="cameraFromRange">Load video</button><button id="manualShotBtn">Enter shot data</button><button id="replayShotBtn" disabled>Replay shot</button><button id="demoShotBtn" class="accent">Demo shot</button></div>
+        </div>
+        <div class="range-metrics" aria-live="polite">
+          <article class="carry-tile"><span>EST. CARRY</span><div><strong id="simCarry">—</strong><em class="range-unit">m</em></div></article>
+          <article><span>BALL SPEED</span><div><strong id="simBall">—</strong><em>mph</em></div></article>
+          <article><span>LAUNCH ANGLE</span><div><strong id="simLaunch">—</strong><em>°</em></div></article>
+          <article><span>EST. APEX</span><div><strong id="simApex">—</strong><em class="range-unit">m</em></div></article>
+          <article><span>SPIN</span><div><strong>—</strong><em>rpm</em></div><small>Not measured</small></article>
+          <article><span>SHOT SOURCE</span><div><strong id="simSource" class="source-value">—</strong></div><small id="simModel">Flight is a visual estimate</small></article>
+        </div>
+      </div>
+      <div id="rangeError" class="range-error" hidden></div>
+      <div id="rendererBadge" class="renderer-badge">Starting graphics…</div>
+      <dialog id="shotEntryDialog" class="shot-dialog">
+        <form id="shotEntryForm"><header><div><span>INDEPENDENT READINGS</span><h2>Enter shot data</h2></div><button type="button" id="closeShotEntry" aria-label="Close shot data">×</button></header>
+          <p>Use readings from a launch monitor. Entered values are labelled Manual and do not become camera measurements.</p>
+          <div class="shot-inputs"><label>Ball speed (mph)<input id="inputBallSpeed" type="number" min="1" max="220" step="0.1" required placeholder="e.g. 110"></label><label>Launch angle (°)<input id="inputLaunch" type="number" min="0.5" max="60" step="0.1" required placeholder="e.g. 18"></label><label>Carry (m, optional)<input id="inputCarry" type="number" min="1" max="400" step="0.1" placeholder="If measured"></label></div>
+          <p id="shotEntryError" class="error-copy" hidden></p><button type="submit" class="accent">Simulate entered shot</button>
+        </form>
+      </dialog>
+    </section>
+  </main>
+
+  <nav class="mobile-nav app-nav" aria-label="Burkeshot navigation">
+    <button data-page="simulator"><span>⌁</span>Range</button>
+    <button class="active" data-page="camera"><span>◉</span>Camera</button>
+    <button data-page="session"><span>☷</span>Session</button>
+    <button data-page="coach"><span>◇</span>Coach</button>
+  </nav>
+
+  <footer>
+    <span>BURKESHOT v11 · CALIBRATED VIDEO</span>
+    <span>PRACTICE RANGE / CAMERA / COACH</span>
+  </footer>
+</div>
+
+<script src="range-hd.bundle.js?v=11"></script>
+<script src="range-software.js?v=11"></script>
+<script src="measurement.js?v=11"></script>
+<script src="app.js?v=11"></script>
+<script src="simulator.js?v=11"></script>
+<script src="video-replay.js?v=11"></script>
+<script src="v11-status.js?v=11"></script>
+<script src="calibration-ui.js?v=11"></script>
+</body>
+</html>

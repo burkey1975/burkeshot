@@ -1,0 +1,7 @@
+__pycache__/
+_work/
+sample/
+*.pyc
+*.zip
+node_modules/
+.DS_Store

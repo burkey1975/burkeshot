@@ -1,0 +1,12 @@
+{
+  "name": "burkeshot-practice",
+  "version": "11.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "node preview.mjs",
+    "check": "node --check app.js && node --check simulator.js && node --check range-hd.bundle.js && node --check range-software.js && node --check video-replay.js && node --test tests/*.test.mjs",
+    "build:graphics": "esbuild src/range-entry.mjs --bundle --format=iife --minify --legal-comments=linked --outfile=range-hd.bundle.js"
+  },
+  "dependencies": {"three": "0.170.0"},
+  "devDependencies": {"esbuild": "0.25.0"}
+}
