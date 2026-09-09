@@ -14,7 +14,7 @@
  const calCanvas=document.createElement('canvas');calCanvas.id='calibrationCanvas';calCanvas.setAttribute('aria-hidden','true');document.querySelector('.video-stage').appendChild(calCanvas);
  const reasons=document.createElement('div');reasons.className='measurement-details';reasons.id='measurementDetails';$('resultNote').after(reasons);
  let raw=null,reference=[],corrections={ball:[],club:[]},marking=null,saved=false;
- const conf=()=>({view:$('calView').value,reference:reference.length===2?{a:reference[0],b:reference[1],metres:Number($('calMetres').value)}:null,planeConfirmed:$('calPlane').checked,timing:els.capture.value==='120_real'?'original':els.capture.value,timingConfirmed:$('calTimingConfirmed').checked});
+ const conf=()=>({view:$('calView').value,reference:reference.length===2?{a:reference[0],b:reference[1],metres:Number($('calMetres').value)}:null,planeConfirmed:$('calPlane').checked,timing:els.capture.value==='120_real'?'original':els.capture.value,timingConfirmed:$('calTimingConfirmed').checked,distanceFactor:Number(els.profile.value)||1});
  const dimensions=()=>({width:raw?.video?.width||els.video.videoWidth,height:raw?.video?.height||els.video.videoHeight});
  function markMessage(text){$('calMessage').textContent=text}
  function stopMarking(){marking=null;area.hidden=true;$('calCancel').hidden=true;paint()}
@@ -40,7 +40,7 @@
   els.resultNote.textContent='Carry is a no-spin ballistic model, excluding drag, lift, wind and roll. Clubhead speed is calculated independently; it is never inferred from an assumed smash factor.';
   const data=[['Ball speed',m.ball_speed_mph,why.ball],['Launch angle',m.launch_angle_deg,why.launch],['Clubhead speed',m.club_speed_mph,why.club],['Modelled carry',m.estimated_carry_yards,why.carry]];
   reasons.replaceChildren();for(const [name,value,reason]of data){const row=document.createElement('div'),b=document.createElement('b'),s=document.createElement('span');b.textContent=name;s.textContent=value!=null?(name==='Modelled carry'?'Ballistic model only':name==='Clubhead speed'?`${r.calibration.club_source} positions · calibrated scale`:`${r.calibration.ball_source} positions · calibrated scale`):(reason||'Unavailable');row.append(b,s);reasons.append(row)}
-  if(r.calibration){markMessage(`Using ${r.calibration.fps.toFixed(2)} source fps · ${r.calibration.reference_metres} m = ${r.calibration.reference_pixels.toFixed(1)} image pixels.`)}
+  if(r.calibration){markMessage(`Using ${r.calibration.timing_source} · ${r.calibration.fps.toFixed(2)} source fps · ${r.calibration.reference_metres} m = ${r.calibration.reference_pixels.toFixed(1)} image pixels · ball factor ${r.calibration.distance_factor.toFixed(2)}.`)}
   else markMessage(why.ball||'Complete calibration to continue.');
   $('calSave').disabled=!calibrated||saved;els.viewRangeBtn.disabled=false;
   els.viewRangeBtn.textContent=m.ball_speed_mph!=null&&m.launch_angle_deg!=null?'SIMULATE CALIBRATED ESTIMATE':'OPEN COURSE · NO FLIGHT DATA';
@@ -92,6 +92,7 @@
   els.video.currentTime=(frame+1)/raw.video.encoded_fps;markMessage(`${corrections[kind].length}/4 marked. Click the ${kind==='ball'?'ball':'clubhead'} in the next frame.`);
  });
  for(const id of ['calView','calMetres','calPlane','calTimingConfirmed'])$(id).addEventListener('change',invalidate);
+ els.profile.addEventListener('change',invalidate);
  els.capture.addEventListener('change',()=>{$('calTimingConfirmed').checked=false;$('calTimingRow').hidden=els.capture.value==='original';invalidate()});
  els.video.addEventListener('seeked',paint);els.video.addEventListener('loadedmetadata',paint);window.addEventListener('resize',paint);
  els.club.addEventListener('change',()=>{saved=false;if(raw)apply(false)});

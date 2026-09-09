@@ -153,14 +153,21 @@ def analyze_swing(path: str, handedness='right', view='dtl'):
     shoulder_turn_proxy=math.degrees(math.acos(_clamp(sw_top/sh_a,0,1))) if sh_a else None
     shoulder_tilt_top=abs(_line_angle(xy(top,11),xy(top,12)))
 
-    checkpoints=[
-        ('Spine tilt at address',spine_a,'°',(5,35),'Keep your address posture athletic rather than excessively upright or tilted.'),
-        ('Spine tilt at impact',spine_i,'°',(5,40),'Maintain posture through impact; a large change can indicate early extension.'),
-        ('Lead-knee flex at impact',knee_flex,'°',(0,38),'Lead-leg extension should happen progressively through impact.'),
-        ('Head movement',head_shift,'% shoulder width',(0,30),'Try to keep head movement controlled while allowing normal rotation.'),
-        ('Hip shift',hip_shift,'% shoulder width',(4,55),'Use pressure shift without excessive lateral slide.'),
-        ('Shoulder rotation proxy',shoulder_turn_proxy,'°',(18,75),'Create enough turn without losing posture. This is a 2-D proxy, not a true 3-D turn angle.'),
-    ]
+    if view == 'face_on':
+        checkpoints=[
+            ('Lead-knee flex at impact',knee_flex,'°',(0,38),'Lead-leg extension should happen progressively through impact.'),
+            ('Head movement',head_shift,'% shoulder width',(0,30),'Keep lateral head movement controlled while allowing normal rotation.'),
+            ('Hip shift',hip_shift,'% shoulder width',(4,55),'Use pressure shift without excessive lateral slide.'),
+            ('Shoulder tilt at top',shoulder_tilt_top,'°',(5,35),'Create shoulder tilt without excessive lateral bend.'),
+        ]
+    else:
+        posture_change=abs(spine_i-spine_a)
+        checkpoints=[
+            ('Spine tilt at address',spine_a,'°',(5,35),'Keep your address posture athletic rather than excessively upright or tilted.'),
+            ('Spine tilt at impact',spine_i,'°',(5,40),'Maintain posture through impact; a large change can indicate early extension.'),
+            ('Posture change',posture_change,'°',(0,14),'Reduce loss of posture between address and impact.'),
+            ('Shoulder rotation proxy',shoulder_turn_proxy,'°',(18,75),'Create enough turn without losing posture. This remains a 2-D proxy.'),
+        ]
     cp=[]; tips=[]; scores=[]
     for name,value,unit,band,tip in checkpoints:
         if value is None or not math.isfinite(value):
@@ -198,6 +205,6 @@ def analyze_swing(path: str, handedness='right', view='dtl'):
         'status':'complete','engine':'mediapipe_pose','pose_available':True,
         'score':score,'pose_frames':len(samples),'total_samples':len(samples),
         'phases':phases,'checkpoints':cp,'tips':tips,
-        'note':'Experimental BURKESHOT Coach: 33-point pose tracking with camera-plane checkpoints. Values are not a substitute for calibrated 3-D biomechanics.',
+        'note':f'Experimental BURKESHOT Coach: {"face-on" if view == "face_on" else "down-the-line"} camera-plane checkpoints. Values are not a substitute for calibrated 3-D biomechanics.',
         'view':view,'handedness':handedness,'fps':fps
     }

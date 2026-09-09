@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>BURKESHOT v11 — Calibrated Video Estimates</title>
-<link rel="stylesheet" href="style.css?v=11">
-<link rel="stylesheet" href="v10.css?v=11">
-<link rel="stylesheet" href="calibration.css?v=11">
+<title>BURKESHOT v12 — Timestamp Calibrated</title>
+<link rel="stylesheet" href="style.css?v=12">
+<link rel="stylesheet" href="v10.css?v=12">
+<link rel="stylesheet" href="calibration.css?v=12">
 </head>
 <body>
 <div class="app-shell">
@@ -107,8 +107,8 @@
           <label class="choose-video" for="fileInput">CHOOSE VIDEO</label>
           <input id="fileInput" type="file" accept="video/*,.mov,.MOV,.mp4,.MP4,.m4v,.M4V">
 
-          <button id="test240">TEST 240 SLO-MO</button>
-          <button id="test120">TEST 120 REAL-TIME</button>
+          <button id="analyseBtn">ANALYSE VIDEO</button>
+          <button id="cancelAnalysis" disabled>CANCEL</button>
         </div>
       </section>
 
@@ -166,7 +166,7 @@
     <section class="session-grid">
       <div class="session-header">
         <div><span>PRACTICE HISTORY</span><h1>My Session</h1></div>
-        <button id="clearSession">CLEAR SESSION</button>
+        <div class="session-actions"><button id="exportSession">EXPORT CSV</button><button id="clearSession">CLEAR SESSION</button></div>
       </div>
 
       <div class="session-tabs" role="tablist" aria-label="Session view">
@@ -296,18 +296,18 @@
   </nav>
 
   <footer>
-    <span>BURKESHOT v11 · CALIBRATED VIDEO</span>
+    <span>BURKESHOT v12 · TIMESTAMP CALIBRATED</span>
     <span>PRACTICE RANGE / CAMERA / COACH</span>
   </footer>
 </div>
 
-<script src="range-hd.bundle.js?v=11"></script>
-<script src="range-software.js?v=11"></script>
-<script src="measurement.js?v=11"></script>
-<script src="app.js?v=11"></script>
-<script src="simulator.js?v=11"></script>
-<script src="video-replay.js?v=11"></script>
-<script src="v11-status.js?v=11"></script>
-<script src="calibration-ui.js?v=11"></script>
+<script src="range-hd.bundle.js?v=12"></script>
+<script src="range-software.js?v=12"></script>
+<script src="measurement.js?v=12"></script>
+<script src="app.js?v=12"></script>
+<script src="simulator.js?v=12"></script>
+<script src="video-replay.js?v=12"></script>
+<script src="v12-status.js?v=12"></script>
+<script src="calibration-ui.js?v=12"></script>
 </body>
 </html>

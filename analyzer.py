@@ -15,6 +15,44 @@ def _clamp(v, lo, hi):
     return max(lo, min(hi, v))
 
 
+def _notify(progress, stage: str, percent: int):
+    if progress:
+        progress(stage, percent)
+
+
+def _frame_times(path: str, capture_mode: str, capture_fps: float):
+    """Return measurement-time seconds for decoded frames.
+
+    Original real-time files use container presentation timestamps. Confirmed
+    slow-motion files use their selected source-capture rate because their PTS
+    describe slowed playback rather than the original interval at impact.
+    """
+    try:
+        import av
+
+        times = []
+        with av.open(path) as container:
+            stream = container.streams.video[0]
+            for index, frame in enumerate(container.decode(stream)):
+                if capture_mode in {'original', 'real_auto'} and frame.pts is not None:
+                    value = float(frame.pts * frame.time_base)
+                else:
+                    value = index / max(1.0, float(capture_fps))
+                times.append(round(value, 9))
+        if times:
+            origin = times[0]
+            return [round(value-origin, 9) for value in times], 'container_pts' if capture_mode in {'original', 'real_auto'} else 'confirmed_capture_rate'
+    except Exception:
+        pass
+    return [], 'frame_rate_fallback'
+
+
+def _point_time(frame: int, frame_times, capture_fps: float):
+    if frame_times and 0 <= int(frame) < len(frame_times):
+        return float(frame_times[int(frame)])
+    return float(frame) / max(1.0, float(capture_fps))
+
+
 def _frame_at(cap, idx: int):
     cap.set(cv2.CAP_PROP_POS_FRAMES, int(idx))
     ok, frame = cap.read()
@@ -52,7 +90,78 @@ def _white_candidates(frame: np.ndarray):
     return out
 
 
+def _ball_from_hint(path: str, frame_count: int, ball_hint):
+    """Anchor detection to the golfer-selected hitting point.
+
+    The hint is trusted as the centre. Nearby contours are used only to refine
+    size and centre; failure to find a white contour no longer discards a valid
+    user selection.
+    """
+    cap = cv2.VideoCapture(path)
+    if not cap.isOpened():
+        return None
+    sample_count = min(12, max(1, frame_count // 20))
+    centres, diameters = [], []
+    width = height = 0
+    for index in range(sample_count):
+        frame = _frame_at(cap, index)
+        if frame is None:
+            continue
+        height, width = frame.shape[:2]
+        hx, hy = float(ball_hint[0]) * width, float(ball_hint[1]) * height
+        radius = max(30, int(min(width, height) * .055))
+        roi = frame[max(0, int(hy-radius)):min(height, int(hy+radius)), max(0, int(hx-radius)):min(width, int(hx+radius))]
+        if not roi.size:
+            continue
+        hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+        value_floor = max(115, int(np.percentile(hsv[:, :, 2], 72)))
+        mask = ((hsv[:, :, 2] >= value_floor) & (hsv[:, :, 1] <= 155)).astype(np.uint8) * 255
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        best = None
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            if not 12 <= area <= radius * radius * .9:
+                continue
+            x, y, w, h = cv2.boundingRect(contour)
+            cx = max(0, int(hx-radius)) + x + w/2
+            cy = max(0, int(hy-radius)) + y + h/2
+            distance = math.hypot(cx-hx, cy-hy)
+            aspect = max(w/max(1, h), h/max(1, w))
+            if distance > radius*.55 or aspect > 1.9:
+                continue
+            score = area * math.exp(-distance/max(8, radius*.2)) / aspect
+            if best is None or score > best[0]:
+                best = score, cx, cy, (w+h)/2
+        if best:
+            _, cx, cy, diameter = best
+            centres.append((cx, cy)); diameters.append(diameter)
+    cap.release()
+    if not width or not height:
+        return None
+    hx, hy = float(ball_hint[0]) * width, float(ball_hint[1]) * height
+    if centres:
+        x = float(np.median([p[0] for p in centres])); y = float(np.median([p[1] for p in centres]))
+        diameter = float(np.median(diameters))
+        confidence = _clamp(.72 + len(centres)*.02, .72, .94)
+        source = 'guided_refined'
+    else:
+        x, y = hx, hy
+        diameter = max(8.0, min(width, height)*.012)
+        confidence = .64
+        source = 'guided_position'
+    return {
+        'x': x, 'y': y, 'diameter_px': diameter, 'confidence': confidence,
+        'persistence': len(centres)/max(1, sample_count), 'sample_frames': list(range(sample_count)),
+        'candidate_score': None, 'hint_match': 1.0, 'normalized_x': x/width,
+        'normalized_y': y/height, 'hitting_zone_quality': 1.0, 'source': source,
+    }
+
+
 def detect_stationary_ball(path: str, frame_count: int, ball_hint=None):
+    if ball_hint is not None:
+        guided = _ball_from_hint(path, frame_count, ball_hint)
+        if guided:
+            return guided
     cap = cv2.VideoCapture(path)
     if not cap.isOpened():
         raise RuntimeError('Could not open video')
@@ -147,6 +256,7 @@ def detect_stationary_ball(path: str, frame_count: int, ball_hint=None):
             -((((x / w) if w else 0.78) - 0.78) / 0.20) ** 2
             - ((((y / h) if h else 0.79) - 0.79) / 0.18) ** 2
         )) if w and h else 0.0,
+        'source': 'automatic',
     }
 
 
@@ -254,13 +364,13 @@ def _moving_bright_candidates(prev, cur, roi, ball_d):
     return out
 
 
-def _track_ball_primary(path: str, ball: dict, impact: dict, capture_fps: float, frame_count: int):
+def _track_ball_primary(path: str, ball: dict, impact: dict, capture_fps: float, frame_count: int, frame_times=None):
     """Track the real post-impact ball/streak rather than tiny bright fragments."""
     cap=cv2.VideoCapture(path)
     contact=impact['contact_frame']
     x0,y0,d=ball['x'],ball['y'],max(8.0,ball['diameter_px'])
     ppm=d/BALL_DIAMETER_M
-    points=[{'frame':contact,'x':x0,'y':y0,'kind':'address'}]
+    points=[{'frame':contact,'time_s':_point_time(contact,frame_times,capture_fps),'x':x0,'y':y0,'kind':'address'}]
     prev_point=np.array([x0,y0],dtype=float)
     velocity=None
     prev_frame=_frame_at(cap,contact)
@@ -331,7 +441,7 @@ def _track_ball_primary(path: str, ball: dict, impact: dict, capture_fps: float,
             velocity=0.70*velocity+0.30*disp
         prev_point=p
         points.append({
-            'frame':fi,'x':float(p[0]),'y':float(p[1]),'kind':'measured',
+            'frame':fi,'time_s':_point_time(fi,frame_times,capture_fps),'x':float(p[0]),'y':float(p[1]),'kind':'measured',
             'blob_w':best['w'],'blob_h':best['h'],'blob_area':best['area'],
             'blob_aspect':best['aspect']
         })
@@ -362,10 +472,10 @@ def _track_ball_primary(path: str, ball: dict, impact: dict, capture_fps: float,
     # 2-D pixel-speed calculation.  It is withheld later if geometry is not side-on.
     step_speeds=[]
     for a,b in zip(points,points[1:]):
-        df=b['frame']-a['frame']
-        if df<=0: continue
+        dt=float(b.get('time_s',_point_time(b['frame'],frame_times,capture_fps)))-float(a.get('time_s',_point_time(a['frame'],frame_times,capture_fps)))
+        if dt<=0: continue
         pix=math.hypot(b['x']-a['x'],b['y']-a['y'])
-        mps=(pix/ppm)*(capture_fps/df)
+        mps=(pix/ppm)/dt
         if 8<=mps<=100:
             step_speeds.append(mps)
     speed_mph=None
@@ -434,7 +544,7 @@ def _bg_streak_candidates(base, cur, roi, ball_d):
     return out
 
 
-def _recover_ball_track(path: str, ball: dict, impact: dict, capture_fps: float, frame_count: int, seed_points=None):
+def _recover_ball_track(path: str, ball: dict, impact: dict, capture_fps: float, frame_count: int, seed_points=None, frame_times=None):
     """Beam-search reacquisition for clips where the primary tracker loses the ball."""
     cap=cv2.VideoCapture(path)
     contact=int(impact['contact_frame'])
@@ -444,7 +554,7 @@ def _recover_ball_track(path: str, ball: dict, impact: dict, capture_fps: float,
     h,w=base.shape[:2]
     x0,y0,d=float(ball['x']),float(ball['y']),max(8.0,float(ball['diameter_px']))
     ppm=d/BALL_DIAMETER_M
-    start={'frame':contact,'x':x0,'y':y0,'kind':'address'}
+    start={'frame':contact,'time_s':_point_time(contact,frame_times,capture_fps),'x':x0,'y':y0,'kind':'address'}
     # If the primary detector managed the first post-impact point, use it as a
     # launch-vector seed.  This is the common v3.1 failure shown by the user:
     # BALL/IMPACT are strong, TRACE POINTS = 2, then tracking stops.
@@ -519,7 +629,7 @@ def _recover_ball_track(path: str, ball: dict, impact: dict, capture_fps: float,
                     smooth=math.exp(-accel*1.7)
                     edge_score=.38*prox+.25*direction+.18*smooth+.19*c['quality']
                     nv=.68*vel+.32*(disp/df)
-                npath=path+[{'frame':fi,'x':float(p[0]),'y':float(p[1]),'kind':'recovered','blob_w':c['w'],'blob_h':c['h'],'blob_area':c['area'],'blob_aspect':c['aspect']}]
+                npath=path+[{'frame':fi,'time_s':_point_time(fi,frame_times,capture_fps),'x':float(p[0]),'y':float(p[1]),'kind':'recovered','blob_w':c['w'],'blob_h':c['h'],'blob_area':c['area'],'blob_aspect':c['aspect']}]
                 nscore=score+1.0+edge_score
                 new_states.append((nscore,npath,float(nv[0]),float(nv[1]),fi))
         # Prefer longer paths first, then quality score.
@@ -541,10 +651,10 @@ def _recover_ball_track(path: str, ball: dict, impact: dict, capture_fps: float,
         if -5<=raw<=55: launch=float(raw)
     speeds=[]
     for a,b in zip(points,points[1:]):
-        df=b['frame']-a['frame']
-        if df<=0: continue
+        dt=float(b.get('time_s',_point_time(b['frame'],frame_times,capture_fps)))-float(a.get('time_s',_point_time(a['frame'],frame_times,capture_fps)))
+        if dt<=0: continue
         pix=math.hypot(b['x']-a['x'],b['y']-a['y'])
-        mps=(pix/ppm)*(capture_fps/df)
+        mps=(pix/ppm)/dt
         if 8<=mps<=100: speeds.append(mps)
     speed=None
     if len(speeds)>=3:
@@ -555,14 +665,14 @@ def _recover_ball_track(path: str, ball: dict, impact: dict, capture_fps: float,
     return {'points':points,'confidence':conf,'ball_speed_mph':speed,'launch_angle_deg':launch,'pixels_per_meter':ppm,'sideon_ratio':abs(dx)/(abs(dy)+1e-6),'step_speeds_mps':[float(x) for x in speeds[:8]],'recovery_used':True}
 
 
-def track_ball(path: str, ball: dict, impact: dict, capture_fps: float, frame_count: int):
-    primary=_track_ball_primary(path,ball,impact,capture_fps,frame_count)
+def track_ball(path: str, ball: dict, impact: dict, capture_fps: float, frame_count: int, frame_times=None):
+    primary=_track_ball_primary(path,ball,impact,capture_fps,frame_count,frame_times)
     primary_n=len(primary.get('points',[]))
     # The issue seen in BURKESHOT v3.1 was exactly this case: excellent ball/impact
     # lock but only 1-2 post-impact points.  Re-run with fixed-background streak
     # recovery and use it only when it materially improves the track.
     if primary_n<5 or primary.get('confidence',0)<.44:
-        recovery=_recover_ball_track(path,ball,impact,capture_fps,frame_count,seed_points=primary.get('points',[]))
+        recovery=_recover_ball_track(path,ball,impact,capture_fps,frame_count,seed_points=primary.get('points',[]),frame_times=frame_times)
         rec_n=len(recovery.get('points',[]))
         if rec_n>=max(4,primary_n+2):
             recovery['primary_points']=primary_n
@@ -570,7 +680,7 @@ def track_ball(path: str, ball: dict, impact: dict, capture_fps: float, frame_co
     primary['recovery_used']=False
     return primary
 
-def track_club(path: str, ball: dict, impact: dict, capture_fps: float, frame_count: int):
+def track_club(path: str, ball: dict, impact: dict, capture_fps: float, frame_count: int, frame_times=None):
     cap=cv2.VideoCapture(path)
     contact=impact['contact_frame']; x,y,d=ball['x'],ball['y'],max(8,ball['diameter_px']); ppm=d/BALL_DIAMETER_M
     candidates=[]
@@ -601,7 +711,7 @@ def track_club(path: str, ball: dict, impact: dict, capture_fps: float, frame_co
             if best is None or score>best[0]: best=(score,nearest,md,area)
         if best:
             _,p,md,area=best
-            candidates.append({'frame':fi,'x':float(p[0]),'y':float(p[1]),'distance_to_ball':md})
+            candidates.append({'frame':fi,'time_s':_point_time(fi,frame_times,capture_fps),'x':float(p[0]),'y':float(p[1]),'distance_to_ball':md})
         prev=cur
     cap.release()
     if len(candidates)<3:
@@ -619,9 +729,9 @@ def track_club(path: str, ball: dict, impact: dict, capture_fps: float, frame_co
         seq=candidates[-3:]
     steps=[]
     for a,b in zip(seq,seq[1:]):
-        df=b['frame']-a['frame']; pix=math.hypot(b['x']-a['x'],b['y']-a['y'])
-        if df>0:
-            mps=(pix/ppm)*(capture_fps/df)
+        dt=float(b.get('time_s',_point_time(b['frame'],frame_times,capture_fps)))-float(a.get('time_s',_point_time(a['frame'],frame_times,capture_fps))); pix=math.hypot(b['x']-a['x'],b['y']-a['y'])
+        if dt>0:
+            mps=(pix/ppm)/dt
             if 8<=mps<=70: steps.append(mps)
     speed=None
     smooth=False
@@ -639,7 +749,8 @@ def track_club(path: str, ball: dict, impact: dict, capture_fps: float, frame_co
     return {'points':seq,'confidence':conf,'club_speed_mph':speed,'attack_angle_deg':attack}
 
 
-def analyze_video(path: str, capture_fps: float = 240.0, capture_mode: str = '240_slo', ball_hint=None, distance_factor: float = 1.0):
+def analyze_video(path: str, capture_fps: float = 240.0, capture_mode: str = '240_slo', ball_hint=None, progress=None):
+    _notify(progress,'Reading video metadata',5)
     cap=cv2.VideoCapture(path)
     if not cap.isOpened():
         raise RuntimeError('Video could not be opened')
@@ -676,24 +787,30 @@ def analyze_video(path: str, capture_fps: float = 240.0, capture_mode: str = '24
         # encoded frame rate.  Physics still uses the original 240-fps capture timing.
         effective_capture_fps=240.0
 
+    _notify(progress,'Reading exact frame timestamps',12)
+    frame_times,timing_source=_frame_times(path,capture_mode,effective_capture_fps)
+
     result={
         'video': {
             'width':width,'height':height,'encoded_fps':encoded_fps,
             'capture_fps':float(effective_capture_fps),
             'requested_capture_fps':requested_capture_fps,
             'capture_mode':capture_mode,
-            'frame_count':frame_count,'duration_s':duration
+            'frame_count':frame_count,'duration_s':duration,
+            'frame_times_s':frame_times,'timing_source':timing_source
         },
         'status':'processing','warnings':[]
     }
     if timing_warning:
         result['warnings'].append(timing_warning)
+    _notify(progress,'Finding the selected golf ball',22)
     ball=detect_stationary_ball(path,frame_count,ball_hint=ball_hint)
     if not ball:
         result.update(status='ball_not_found', ball=None, impact=None, metrics={})
         result['warnings'].append('Golf ball could not be locked automatically. Use brighter lighting and keep the ball clearly visible.')
         return result
     result['ball']=ball
+    _notify(progress,'Detecting impact',42)
     impact=detect_impact(path,ball,frame_count)
     if not impact:
         result.update(status='impact_not_found',impact=None,metrics={})
@@ -712,8 +829,10 @@ def analyze_video(path: str, capture_fps: float = 240.0, capture_mode: str = '24
         ok,jpg=cv2.imencode('.jpg',still,[int(cv2.IMWRITE_JPEG_QUALITY),82])
         if ok:
             result['impact_image']='data:image/jpeg;base64,'+base64.b64encode(jpg.tobytes()).decode('ascii')
-    bt=track_ball(path,ball,impact,float(effective_capture_fps),frame_count)
-    ct=track_club(path,ball,impact,float(effective_capture_fps),frame_count)
+    _notify(progress,'Tracking initial ball flight',64)
+    bt=track_ball(path,ball,impact,float(effective_capture_fps),frame_count,frame_times)
+    _notify(progress,'Tracking the clubhead',82)
+    ct=track_club(path,ball,impact,float(effective_capture_fps),frame_count,frame_times)
     result['ball_track']=bt; result['club_track']=ct
 
     ball_speed=bt.get('ball_speed_mph'); launch=bt.get('launch_angle_deg')
@@ -743,41 +862,24 @@ def analyze_video(path: str, capture_fps: float = 240.0, capture_mode: str = '24
     if ball_speed is None or club_speed is None:
         smash=None
 
-    # Derived range-style values. These are estimates, not camera measurements,
-    # because spin/aerodynamic data is unavailable from this single-camera prototype.
-    estimated_carry_yards=None
-    estimated_height_yards=None
-    if ball_speed is not None and launch is not None:
-        try:
-            v=float(ball_speed)/MPS_TO_MPH
-            theta=math.radians(float(launch))
-            # Simple no-spin ballistic baseline, lightly reduced to avoid presenting
-            # vacuum physics as golf-ball carry. User ball/range correction is explicit.
-            raw_range=(v*v*math.sin(2*theta))/9.80665
-            raw_height=((v*math.sin(theta))**2)/(2*9.80665)
-            factor=_clamp(float(distance_factor),0.65,1.20)
-            estimated_carry_yards=max(0.0, raw_range*1.0936133*0.78*factor)
-            estimated_height_yards=max(0.0, raw_height*1.0936133*0.90)
-        except Exception:
-            estimated_carry_yards=None; estimated_height_yards=None
-
     result['camera_geometry']=camera_geometry
-    result['metrics']={
+    # These values are useful tracker diagnostics, but are not user-facing
+    # measurements because the server has no marked real-world reference yet.
+    result['tracking_diagnostics']={
         'ball_speed_mph':ball_speed,
         'club_speed_mph':club_speed,
         'smash_factor':smash,
         'launch_angle_deg':launch,
         'attack_angle_deg':attack,
-        'estimated_carry_yards':estimated_carry_yards,
-        'estimated_total_yards': (estimated_carry_yards * 1.055) if estimated_carry_yards is not None else None,
-        'estimated_height_yards':estimated_height_yards,
-        'launch_direction_deg': None,
     }
+    result['metrics']={}
     confs=[ball.get('confidence',0),impact.get('confidence',0)]
     if bt.get('confidence'): confs.append(bt['confidence'])
     overall=float(np.mean(confs)) if confs else 0
     result['confidence']=overall
-    result['status']='complete' if ball_speed is not None and launch is not None else 'trace_only'
-    result['measurement_status']='camera_estimate' if result['status']=='complete' else 'video_only'
+    result['status']='trace_only'
+    result['measurement_status']='video_only'
+    result['measurement_source']='Requires marked scale and camera-plane confirmation'
     result['replay']={'start_frame':max(0,impact['contact_frame']-10),'impact_frame':impact['contact_frame'],'end_frame':min(frame_count-1,(bt.get('points') or [{'frame':impact['contact_frame']}])[-1]['frame']+12)}
+    _notify(progress,'Preparing calibrated result',96)
     return result

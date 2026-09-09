@@ -12,13 +12,13 @@ const CLUBS={
 const els={
  club:$('clubSelect'),readyTitle:$('readyTitle'),readySub:$('readySub'),
  video:$('video'),still:$('impactStill'),tracking:$('trackingCanvas'),file:$('fileInput'),capture:$('captureMode'),profile:$('ballProfile'),
- test240:$('test240'),test120:$('test120'),setupToggle:$('setupToggle'),setupGuide:$('setupGuide'),cameraState:$('cameraState'),
+ analyseBtn:$('analyseBtn'),cancelAnalysis:$('cancelAnalysis'),setupToggle:$('setupToggle'),setupGuide:$('setupGuide'),cameraState:$('cameraState'),
  loader:$('analysisLoader'),stage:$('analysisStage'),progress:$('progressBar'),warning:$('cameraWarning'),headline:$('cameraHeadline'),message:$('cameraMessage'),
  resultClub:$('resultClub'),quality:$('quality'),carry:$('carry'),carryLabel:$('carryLabel'),ballSpeed:$('ballSpeed'),launch:$('launch'),
  clubSpeed:$('clubSpeed'),smash:$('smash'),attack:$('attack'),tracePoints:$('tracePoints'),ballLock:$('ballLock'),impactLock:$('impactLock'),geometry:$('geometry'),
  resultNote:$('resultNote'),reanalyse:$('reanalyseBtn'),resetZone:$('resetBallZone'),viewRangeBtn:$('viewRangeBtn'),
  sessionShots:$('sessionShots'),avgBall:$('avgBall'),avgCarry:$('avgCarry'),bestCarry:$('bestCarry'),scatter:$('scatterCanvas'),clubAverages:$('clubAverages'),
- history:$('historyList'),shotCount:$('shotCount'),clearSession:$('clearSession'),
+ history:$('historyList'),shotCount:$('shotCount'),clearSession:$('clearSession'),exportSession:$('exportSession'),
  smartShotBar:$('smartShotBar'),smartShotNo:$('smartShotNo'),smartClub:$('smartClub'),smartCarry:$('smartCarry'),smartBall:$('smartBall'),smartLaunch:$('smartLaunch'),
  coachVideo:$('coachVideo'),coachEmpty:$('coachEmpty'),coachLoader:$('coachLoader'),coachFile:$('coachFile'),coachView:$('coachView'),coachHand:$('coachHand'),
  coachScore:$('coachScore'),coachEngine:$('coachEngine'),coachNote:$('coachNote'),coachPhases:$('coachPhases'),coachCheckpoints:$('coachCheckpoints'),coachTips:$('coachTips'),
@@ -27,9 +27,9 @@ const els={
 
 let currentFile=null,currentURL=null,currentResult=null,currentLabel='';
 function readSaved(key,fallback){try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}}
-let ballHint=readSaved('burkeshot_v5_ball_hint',null);
-let shots=readSaved('burkeshot_v5_shots',[]);if(!Array.isArray(shots))shots=[];
-let fakeTimer=null,coachURL=null;
+let ballHint=readSaved('burkeshot_v12_ball_hint',readSaved('burkeshot_v5_ball_hint',null));
+let shots=readSaved('burkeshot_v12_shots',readSaved('burkeshot_v5_shots',[]));if(!Array.isArray(shots))shots=[];
+let coachURL=null,currentJobId=null;
 let range=null;let analysisBusy=false;window.burkeshotReplayMode=false;
 
 function club(){return CLUBS[els.club.value]||CLUBS['7i']}
@@ -44,7 +44,7 @@ function cameraState(title,sub,bad=false){
  b.textContent=title;s.textContent=sub;
  const c=bad?'var(--red)':'var(--green)';b.style.color=c;i.style.background=c;
 }
-function captureCfg(){return els.capture.value==='240_slo'?{fps:240,mode:'240_slo'}:els.capture.value==='120_slo'?{fps:120,mode:'120_slo'}:{fps:120,mode:'real_auto'}}
+function captureCfg(){return els.capture.value==='240_slo'?{fps:240,mode:'240_slo'}:els.capture.value==='120_slo'?{fps:120,mode:'120_slo'}:{fps:120,mode:'original'}}
 function clearMetrics(){
  ['carry','ballSpeed','launch'].forEach(k=>els[k].textContent='—');
  els.clubSpeed.textContent='— mph';els.smash.textContent='—';els.attack.textContent='—°';els.tracePoints.textContent='— pts';
@@ -54,12 +54,9 @@ function clearMetrics(){
 }
 function showLoader(on){
  els.loader.hidden=!on;
- if(!on){clearInterval(fakeTimer);fakeTimer=null;return}
- let p=7;els.progress.style.width=p+'%';
- const stages=['Finding golf ball…','Confirming hitting zone…','Detecting impact…','Following launch streak…','Recovering missed frames…','Calculating shot data…'];
- let i=0;els.stage.textContent=stages[0];
- fakeTimer=setInterval(()=>{p=Math.min(91,p+Math.random()*8);els.progress.style.width=p+'%';if(i<stages.length-1&&p>(i+1)*14){i++;els.stage.textContent=stages[i]}},420);
+ if(on){els.progress.style.width='1%';els.stage.textContent='Uploading video…'}
 }
+function setProgress(stage,percent){els.stage.textContent=stage||'Analysing video…';els.progress.style.width=Math.max(0,Math.min(100,Number(percent)||0))+'%'}
 function loadPreview(f){
  currentFile=f;currentLabel=f.name;
  if(currentURL)URL.revokeObjectURL(currentURL);currentURL=URL.createObjectURL(f);
@@ -106,7 +103,7 @@ function renderDetection(r){
  els.carryLabel.textContent=m.estimated_carry_yards==null?'Trace only — no calibrated carry':'Estimated from camera launch data';
 
  if(b.normalized_x!=null){
-   ballHint={x:b.normalized_x,y:b.normalized_y};localStorage.setItem('burkeshot_v5_ball_hint',JSON.stringify(ballHint));
+   ballHint={x:b.normalized_x,y:b.normalized_y};localStorage.setItem('burkeshot_v12_ball_hint',JSON.stringify(ballHint));
  }
  if(r.impact_image){els.still.src=r.impact_image}
  drawTracking(r);
@@ -123,36 +120,43 @@ function renderDetection(r){
 }
 async function analyse(f,label){
  if(!f||analysisBusy)return;
- analysisBusy=true;[els.file,els.test240,els.test120,els.reanalyse,els.club,els.capture,els.profile].forEach(e=>e.disabled=true);
+ analysisBusy=true;[els.file,els.analyseBtn,els.reanalyse,els.club,els.capture,els.profile].forEach(e=>e.disabled=true);els.cancelAnalysis.disabled=false;
  currentFile=f;currentLabel=label||f.name;currentResult=null;clearMetrics();els.warning.hidden=true;
  window.dispatchEvent(new CustomEvent('burkeshot-analysis-start'));
- setReady('ANALYSING','AUTOMATIC SHOT DETECTION');cameraState('MEASURING','AUTOMATIC BALL SEARCH');showLoader(true);
- const cfg=captureCfg(),ext=f.name?.includes('.')?'.'+f.name.split('.').pop():'.mp4';
- let q=`capture_fps=${cfg.fps}&capture_mode=${cfg.mode}&distance_factor=${els.profile.value}`;
+ setReady('ANALYSING','TIMESTAMP-AWARE TRACKING');cameraState('MEASURING',ballHint?'SELECTED BALL ZONE':'AUTOMATIC BALL SEARCH');showLoader(true);
+ const cfg=captureCfg(),form=new FormData();form.append('video',f,f.name||'shot.mp4');
+ let q=`capture_fps=${cfg.fps}&capture_mode=${cfg.mode}`;
  if(ballHint)q+=`&ball_hint_x=${ballHint.x}&ball_hint_y=${ballHint.y}`;
  try{
-   const res=await fetch('/api/analyze?'+q,{method:'POST',headers:{'Content-Type':'application/octet-stream','X-File-Ext':ext},body:f});
-   let r=await res.json();if(!res.ok||r.error)throw new Error(r.error||'Analysis failed');
+   const submitted=await fetch('/api/jobs/analyze?'+q,{method:'POST',body:form});
+   const started=await submitted.json();if(!submitted.ok)throw new Error(started.detail||started.error||'Upload failed');
+   currentJobId=started.job_id;let job;
+   while(true){
+    await new Promise(resolve=>setTimeout(resolve,350));
+    const response=await fetch('/api/jobs/'+currentJobId),body=await response.json();if(!response.ok)throw new Error(body.detail||'Analysis status failed');job=body;
+    setProgress(job.stage,job.progress);
+    if(job.status==='complete')break;
+    if(job.status==='failed')throw new Error(job.error||'Analysis failed');
+    if(job.status==='cancelled')throw new Error('Analysis cancelled');
+   }
+   let r=job.result;
    if(window.burkeshotMeasureResult)r=window.burkeshotMeasureResult(r);
    currentResult=r;renderDetection(r);window.dispatchEvent(new CustomEvent('burkeshot-shot',{detail:{result:r,club:els.club.value}}));setReady(r.measurement_status==='calibrated_estimate'?'ESTIMATE READY':'VIDEO ONLY','CALIBRATION & TRACKING');
    if(r.impact&&r.video?.encoded_fps){els.video.currentTime=Math.max(0,(r.impact.contact_frame-12)/r.video.encoded_fps);els.video.pause();drawTracking(r)}
  }catch(e){
    els.warning.hidden=false;els.warning.textContent='BURKESHOT could not analyse this video: '+e.message;
    cameraState('ERROR','ANALYSIS FAILED',true);setReady('ERROR','CHECK CAMERA ENGINE',true);
- }finally{showLoader(false);els.progress.style.width='100%';analysisBusy=false;[els.file,els.test240,els.test120,els.reanalyse,els.club,els.capture,els.profile].forEach(e=>e.disabled=false);window.dispatchEvent(new CustomEvent('burkeshot-analysis-complete',{detail:currentResult}));}
-}
-function loadSample(name,mode){
- els.capture.value=mode;
- fetch('sample/'+name).then(r=>{if(!r.ok)throw Error('Sample request failed');return r.blob()}).then(b=>{const f=new File([b],name,{type:'video/mp4'});loadPreview(f);analyse(f,name)}).catch(()=>{els.warning.hidden=false;els.warning.textContent='Sample video could not be loaded.'});
+ }finally{showLoader(false);analysisBusy=false;currentJobId=null;els.cancelAnalysis.disabled=true;[els.file,els.analyseBtn,els.reanalyse,els.club,els.capture,els.profile].forEach(e=>e.disabled=false);window.dispatchEvent(new CustomEvent('burkeshot-analysis-complete',{detail:currentResult}));}
 }
 function saveShot(r,label){
  const m=r.metrics||{},bt=r.ball_track||{},item={
    id:Date.now(),date:new Date().toISOString(),club:club().name,label:label||currentLabel,
    carry:m.estimated_carry_yards,ballSpeed:m.ball_speed_mph,launch:m.launch_angle_deg,clubSpeed:m.club_speed_mph,
    smash:m.smash_factor,attack:m.attack_angle_deg,confidence:r.confidence,trace:bt.points?.length||0,
-   measurementStatus:r.measurement_status,source:r.measurement_source,calibration:r.calibration,version:11
+   measurementStatus:r.measurement_status,source:r.measurement_source,calibration:r.calibration,version:12
  };
- shots.unshift(item);shots=shots.slice(0,80);localStorage.setItem('burkeshot_v5_shots',JSON.stringify(shots));renderSession();
+ shots.unshift(item);shots=shots.slice(0,500);localStorage.setItem('burkeshot_v12_shots',JSON.stringify(shots));renderSession();
+ fetch('/api/shots',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(item)}).catch(()=>{});
 }
 
 /* Session */
@@ -175,7 +179,7 @@ function renderSession(){
  els.history.innerHTML='';
  if(!shots.length)els.history.innerHTML='<div class="session-empty"><b>No shots yet</b><span>Load a swing video from Camera to start this session.</span></div>';
  shots.slice(0,40).forEach((s,index)=>{const d=document.createElement('article'),date=new Date(s.date);d.className='shot-item';d.innerHTML=`<div class="shot-number"><span>${shots.length-index}</span></div><div class="shot-main"><small>${date.toLocaleDateString([], {day:'2-digit',month:'2-digit'})} ${date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})} · ${s.club}</small><strong>${s.carry!=null?Math.round(s.carry):'—'}<em>yd</em></strong></div><div class="shot-stat"><span>BALL SPEED</span><b>${s.ballSpeed!=null?fmt(s.ballSpeed,1):'—'} <em>mph</em></b></div><div class="shot-stat"><span>LAUNCH ANGLE</span><b>${s.launch!=null?fmt(s.launch,1):'—'} <em>°</em></b></div><button class="delete-shot" data-shot-id="${s.id}" aria-label="Delete shot ${shots.length-index}">×</button>`;els.history.appendChild(d)});
- els.history.querySelectorAll('.delete-shot').forEach(b=>b.onclick=()=>{shots=shots.filter(s=>String(s.id)!==b.dataset.shotId);localStorage.setItem('burkeshot_v5_shots',JSON.stringify(shots));renderSession()});
+ els.history.querySelectorAll('.delete-shot').forEach(b=>b.onclick=()=>{shots=shots.filter(s=>String(s.id)!==b.dataset.shotId);localStorage.setItem('burkeshot_v12_shots',JSON.stringify(shots));fetch('/api/shots/'+encodeURIComponent(b.dataset.shotId),{method:'DELETE'}).catch(()=>{});renderSession()});
  drawScatter();
 }
 function drawScatter(){
@@ -189,6 +193,15 @@ function drawScatter(){
  const pts=shots.filter(s=>s.ballSpeed!=null&&s.launch!=null);
  pts.forEach((s,i)=>{const x=pad.l+(Math.max(70,Math.min(170,s.ballSpeed))-70)/100*w;const y=pad.t+(30-Math.max(0,Math.min(30,s.launch)))/30*h;c.fillStyle=i===0?'#dfff55':'#a8ff32aa';c.beginPath();c.arc(x,y,i===0?5:3.5,0,Math.PI*2);c.fill()});
 }
+async function hydrateShots(){
+ try{const response=await fetch('/api/shots');if(!response.ok)return;const stored=await response.json();if(Array.isArray(stored)&&stored.length){shots=stored;localStorage.setItem('burkeshot_v12_shots',JSON.stringify(shots));renderSession()}}
+ catch{/* Interface-only preview keeps the local fallback. */}
+}
+function exportShots(){
+ const fields=['date','club','carry','ballSpeed','launch','clubSpeed','smash','attack','confidence','source'],quote=value=>'"'+String(value??'').replaceAll('"','""')+'"';
+ const csv=[fields.join(','),...shots.map(shot=>fields.map(field=>quote(shot[field])).join(','))].join('\r\n'),blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download='burkeshot-session.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
 
 /* Coach */
 function coachLoadPreview(f){if(coachURL)URL.revokeObjectURL(coachURL);coachURL=URL.createObjectURL(f);els.coachVideo.src=coachURL;els.coachEmpty.hidden=true;els.coachVideo.play().catch(()=>{})}
@@ -200,8 +213,8 @@ function renderCoach(r){
  els.coachTips.innerHTML='';(r.tips||[]).forEach(t=>{const li=document.createElement('li');li.textContent=t;els.coachTips.appendChild(li)});
 }
 async function analyseCoach(f){
- els.coachLoader.hidden=false;const ext=f.name?.includes('.')?'.'+f.name.split('.').pop():'.mp4';const q=`handedness=${els.coachHand.value}&view=${els.coachView.value}`;
- try{const res=await fetch('/api/coach?'+q,{method:'POST',headers:{'Content-Type':'application/octet-stream','X-File-Ext':ext},body:f});const r=await res.json();if(!res.ok||r.error)throw new Error(r.error||'Coach failed');renderCoach(r)}
+ els.coachLoader.hidden=false;const q=`handedness=${els.coachHand.value}&view=${els.coachView.value}`,form=new FormData();form.append('video',f,f.name||'swing.mp4');
+ try{const res=await fetch('/api/coach?'+q,{method:'POST',body:form});const r=await res.json();if(!res.ok||r.error)throw new Error(r.detail||r.error||'Coach failed');renderCoach(r)}
  catch(e){els.coachNote.textContent='Coach analysis failed: '+e.message}finally{els.coachLoader.hidden=true}
 }
 
@@ -238,17 +251,18 @@ document.querySelectorAll('[data-session-view]').forEach(b=>b.onclick=()=>{
  document.querySelectorAll('[data-session-panel]').forEach(x=>x.hidden=x.dataset.sessionPanel!==b.dataset.sessionView);
  if(b.dataset.sessionView==='graph')requestAnimationFrame(drawScatter);
 });
-els.file.onchange=e=>{const f=e.target.files?.[0];if(f){loadPreview(f);analyse(f,f.name)}};
-els.test240.onclick=()=>loadSample('IMG_3988.mp4','240_slo');
-els.test120.onclick=()=>loadSample('IMG_3983.mp4','original');
+els.file.onchange=e=>{const f=e.target.files?.[0];if(f){loadPreview(f);setReady('VIDEO READY','SELECT BALL OR ANALYSE');cameraState('SETUP','SELECT BALL FOR BEST RESULT');els.resultNote.textContent='For the most reliable lock, choose SELECT BALL and click the stationary ball before analysing.'}};
+els.analyseBtn.onclick=()=>{if(currentFile)analyse(currentFile,currentLabel);else els.resultNote.textContent='Choose a video first.'};
+els.cancelAnalysis.onclick=()=>{if(currentJobId)fetch('/api/jobs/'+currentJobId,{method:'DELETE'}).catch(()=>{});setProgress('Stopping analysis…',0)};
 els.reanalyse.onclick=()=>{if(currentFile)analyse(currentFile,currentLabel)};
-els.resetZone.onclick=()=>{ballHint=null;localStorage.removeItem('burkeshot_v5_ball_hint');els.resultNote.textContent='Learned ball zone reset. The next shot will establish a new ball location.'};
+els.resetZone.onclick=()=>{ballHint=null;localStorage.removeItem('burkeshot_v12_ball_hint');localStorage.removeItem('burkeshot_v5_ball_hint');els.resultNote.textContent='Learned ball zone reset. Select the ball again for the next video.'};
 els.setupToggle.onclick=()=>{els.setupGuide.classList.toggle('hidden')};
 els.club.onchange=()=>{els.resultClub.textContent=club().name.toUpperCase();els.smartClub.textContent=club().name.toUpperCase()};
-els.clearSession.onclick=()=>{shots=[];localStorage.removeItem('burkeshot_v5_shots');renderSession()};
+els.clearSession.onclick=()=>{shots=[];localStorage.removeItem('burkeshot_v12_shots');fetch('/api/shots',{method:'DELETE'}).catch(()=>{});renderSession()};
+els.exportSession.onclick=exportShots;
 els.coachFile.onchange=e=>{const f=e.target.files?.[0];if(f){coachLoadPreview(f);analyseCoach(f)}};
 
 document.querySelectorAll('.sim-cameras button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.sim-cameras button').forEach(x=>x.classList.remove('active'));b.classList.add('active');ensureRange()?.setView(b.dataset.view)});
 window.addEventListener('resize',()=>{if(currentResult)drawTracking(currentResult);if(document.querySelector('#page-session.active'))drawScatter()});
 
-clearMetrics();renderSession();setReady('READY','LOAD A SHOT');
+clearMetrics();renderSession();hydrateShots();setReady('READY','LOAD A SHOT');

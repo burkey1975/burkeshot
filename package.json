@@ -1,9 +1,11 @@
 {
   "name": "burkeshot-practice",
-  "version": "11.0.0",
+  "version": "12.0.0",
   "private": true,
   "scripts": {
     "dev": "node preview.mjs",
+    "test": "npm run check && python -m pytest -q",
+    "test:python": "python -m pytest -q",
     "check": "node --check app.js && node --check simulator.js && node --check range-hd.bundle.js && node --check range-software.js && node --check video-replay.js && node --test tests/*.test.mjs",
     "build:graphics": "esbuild src/range-entry.mjs --bundle --format=iife --minify --legal-comments=linked --outfile=range-hd.bundle.js"
   },

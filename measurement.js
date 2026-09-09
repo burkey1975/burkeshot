@@ -4,6 +4,7 @@
  const empty=()=>({ball_speed_mph:null,club_speed_mph:null,launch_angle_deg:null,attack_angle_deg:null,smash_factor:null,estimated_carry_yards:null,estimated_height_yards:null,estimated_total_yards:null});
  const median=a=>{const b=[...a].sort((x,y)=>x-y);return b.length%2?b[(b.length-1)/2]:(b[b.length/2-1]+b[b.length/2])/2};
  const finite=v=>typeof v==='number'&&Number.isFinite(v);
+ const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
  function videoPoint(rect,width,height,x,y){
   if(!(width>0&&height>0&&rect.width>0&&rect.height>0))return null;
   const scale=Math.min(rect.width/width,rect.height/height),px=(x-rect.left-(rect.width-width*scale)/2)/scale,py=(y-rect.top-(rect.height-height*scale)/2)/scale;
@@ -19,7 +20,8 @@
   // Image y points down. A -> B must follow the target direction. Pick the upward
   // normal independently of left/right handedness and modest camera roll.
   const sign=ux>=0?1:-1,nx=sign*uy,ny=-sign*ux;
-  const converted=pts.map(p=>({t:(p.frame-impact)/fps,x:(p.x-cal.a.x)*ux*scale+(p.y-cal.a.y)*uy*scale,y:((p.x-cal.a.x)*nx+(p.y-cal.a.y)*ny)*scale}));
+  const times=video.frame_times_s||[],impactTime=finite(times[impact])?times[impact]:impact/fps;
+  const converted=pts.map(p=>({t:(finite(p.time_s)?p.time_s:finite(times[p.frame])?times[p.frame]:p.frame/fps)-impactTime,x:(p.x-cal.a.x)*ux*scale+(p.y-cal.a.y)*uy*scale,y:((p.x-cal.a.x)*nx+(p.y-cal.a.y)*ny)*scale}));
   const n=converted.length,mt=converted.reduce((s,p)=>s+p.t,0)/n,mx=converted.reduce((s,p)=>s+p.x,0)/n,my=converted.reduce((s,p)=>s+p.y,0)/n;
   let tt=0,tx=0,ty=0;for(const p of converted){tt+=(p.t-mt)**2;tx+=(p.t-mt)*(p.x-mx);ty+=(p.t-mt)*(p.y-my)}
   if(!(tt>0))return{reason:'Distinct source frames are required.'};
@@ -67,7 +69,8 @@
    m.ball_speed_mph=ball.speed_mps*2.2369362921;m.launch_angle_deg=ball.angle_deg;
    const angle=ball.angle_deg*Math.PI/180;
    // Explicit vacuum baseline only. Spin, drag, lift, wind and roll are unknown.
-   m.estimated_carry_yards=ball.speed_mps**2*Math.sin(2*angle)/9.80665/.9144;
+   const distanceFactor=clamp(Number(config.distanceFactor)||1,.65,1.2);
+   m.estimated_carry_yards=ball.speed_mps**2*Math.sin(2*angle)/9.80665/.9144*distanceFactor;
    m.estimated_height_yards=(ball.speed_mps*Math.sin(angle))**2/(2*9.80665)/.9144;
   }
   if(club.reason)reasons.club=club.reason;
@@ -76,7 +79,7 @@
   result.status=m.ball_speed_mph!=null&&m.launch_angle_deg!=null?'complete':'trace_only';
   result.measurement_status=Object.values(m).some(x=>x!=null)?'calibrated_estimate':'video_only';
   result.measurement_source='Calibrated side-on estimate';
-  result.calibration={fps,reference_metres:c.metres,reference_pixels:len,ball_source:corrections.ball?.length?'manually marked':'automatic',club_source:corrections.club?.length?'manually marked':'automatic',ball_fit:ball,club_fit:club};
+  result.calibration={fps,timing_source:raw.video.timing_source||'frame_rate_fallback',reference_metres:c.metres,reference_pixels:len,distance_factor:clamp(Number(config.distanceFactor)||1,.65,1.2),ball_source:corrections.ball?.length?'manually marked':'automatic',club_source:corrections.club?.length?'manually marked':'automatic',ball_fit:ball,club_fit:club};
   result.warnings=[...new Set(Object.values(reasons))];
   return result;
  }

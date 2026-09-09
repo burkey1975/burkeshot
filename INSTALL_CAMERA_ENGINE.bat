@@ -10,8 +10,8 @@ if not defined PY (
  pause
  exit /b 1
 )
-echo Installing OpenCV and NumPy for iPhone video analysis...
-%PY% -m pip install --user opencv-python-headless numpy
+echo Installing the Burkeshot V12 camera, API and timestamp engines...
+%PY% -m pip install --user -r requirements.txt
 if errorlevel 1 (
  echo Installation failed. Check your internet connection and Python setup.
  pause

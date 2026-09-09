@@ -17,6 +17,18 @@ test('reference length changes speed linearly and ballistic carry quadratically'
  const a=calculate(input(),config()),c=config();c.reference.metres=.5;const b=calculate(input(),c);
  assert.ok(Math.abs(b.metrics.ball_speed_mph/a.metrics.ball_speed_mph-.5)<1e-8);assert.ok(Math.abs(b.metrics.estimated_carry_yards/a.metrics.estimated_carry_yards-.25)<1e-8);
 });
+test('ball profile factor is applied once to modelled carry',()=>{
+ const base=calculate(input(),config()),c=config();c.distanceFactor=.92;const rangeBall=calculate(input(),c);
+ assert.ok(Math.abs(rangeBall.metrics.estimated_carry_yards/base.metrics.estimated_carry_yards-.92)<1e-8);
+ assert.equal(rangeBall.calibration.distance_factor,.92);
+});
+test('decoded frame timestamps override nominal fps for real-time fitting',()=>{
+ const raw=input(),c=config();c.timing='original';raw.video.encoded_fps=120;
+ raw.video.frame_times_s=Array.from({length:500},(_,i)=>i/120);
+ for(let i=101;i<raw.video.frame_times_s.length;i++)raw.video.frame_times_s[i]+=(i-100)*.001;
+ const timed=calculate(raw,c),without=input();without.video.encoded_fps=120;const nominal=calculate(without,c);
+ assert.ok(timed.metrics.ball_speed_mph<nominal.metrics.ball_speed_mph);
+});
 test('rear camera cannot be unlocked by marking a scale or confirming side-on incorrectly',()=>{
  const raw=input();raw.camera_geometry='not_side_on';const r=calculate(raw,config());assert.ok(Object.values(r.metrics).every(v=>v===null));assert.match(r.measurement_reasons.ball,/unsuitable/);
  const c=config();c.view='rear';assert.match(calculate(input(),c).measurement_reasons.ball,/Rear-view/);

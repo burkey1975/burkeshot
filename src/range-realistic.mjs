@@ -106,7 +106,7 @@ export class BurkeRealisticRange {
 
   async loadCourse() {
     const loader=new THREE.TextureLoader();
-    const load=name=>loader.loadAsync('assets/'+name).catch(()=>{throw new Error('Course asset could not load: '+name+'. Extract the entire ZIP and launch with START_BURKESHOT_V11.bat.');});
+    const load=name=>loader.loadAsync('assets/'+name).catch(()=>{throw new Error('Course asset could not load: '+name+'. Extract the entire ZIP and launch with START_BURKESHOT_V12.bat.');});
     const [turf,oak,pine]=await Promise.all(['fairway-turf.png','oak-tree.png','pine-tree.png'].map(load));
     const anisotropy=Math.min(16,this.renderer.capabilities.getMaxAnisotropy());
     for(const t of [turf,oak,pine]){t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=anisotropy;}
