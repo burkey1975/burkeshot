@@ -7,6 +7,13 @@ fetch('/api/health',{cache:'no-store'}).then(r=>r.json()).then(r=>{
  else if(!r.camera_engine)els.resultNote.textContent='Camera dependencies are missing. Run INSTALL_CAMERA_ENGINE.bat.';
 }).catch(()=>{els.resultNote.textContent='Camera service is disconnected. Run START_BURKESHOT_V12.bat; opening the HTML alone does not analyse videos.';});
 
+// Phone-first v4 presentation. Loaded here so desktop remains unchanged.
+const mobileV4=document.createElement('link');
+mobileV4.rel='stylesheet';
+mobileV4.href='/assets/mobile-v4.css?v=4.1';
+document.head.appendChild(mobileV4);
+document.documentElement.classList.add('burkeshot-v4');
+
 (function setupRearV4Controls(){
  const view=document.getElementById('calView');
  const fields=document.querySelector('.calibration-fields');
