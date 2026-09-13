@@ -1,0 +1,4 @@
+- Use stationary ball diameter for focal calibration.
+- Correct motion-blur inflation in moving ball minor axis.
+- Anchor robust velocity fit at impact.
+- Validate against independent launch-monitor data.
