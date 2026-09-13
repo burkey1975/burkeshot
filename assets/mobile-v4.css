@@ -1,0 +1,60 @@
+/* BurkeShot v4 phone-first rear-view layout */
+@media (max-width:760px){
+  .calibration-panel{padding:12px 12px 14px;background:#f7faf8;border-bottom:1px solid #dbe5df}
+  .calibration-panel header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+  .calibration-panel header>div{min-width:0}
+  .calibration-panel header b{font-size:1rem;color:#17382e}
+  .calibration-panel header p{font-size:.76rem;margin:4px 0 0;line-height:1.35;color:#61736b}
+  .calibration-panel header>span{font-size:.68rem;margin:0;padding:5px 8px;border-radius:999px;background:#e5eee9;color:#315f50}
+  .calibration-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .calibration-fields>label:first-child{grid-column:1/-1}
+  .calibration-fields label{font-size:.72rem;color:#41564d}
+  .calibration-fields input,.calibration-fields select{min-height:46px;font-size:16px;border-radius:10px;padding:10px 12px;background:#fff;border-color:#c8d7cf}
+  #rearDistanceLabel,#rearHeightLabel{grid-column:auto}
+  #calReference{font-size:.75rem!important;line-height:1.4;margin:9px 0!important;padding:9px 10px;background:#edf5f0;border-radius:8px;color:#486359!important}
+  .cal-check{font-size:.76rem;line-height:1.4;margin:9px 0}
+  .cal-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .cal-actions #calApply{grid-column:1/-1;min-height:50px;font-size:.95rem;font-weight:800;border-radius:12px;box-shadow:0 5px 14px #174d3422}
+  .cal-actions #calSave{min-height:44px}
+  .calibration-panel #calMessage{font-size:.78rem;line-height:1.45;margin:9px 0;padding:8px 10px;border-radius:8px;background:#eef3fb;color:#365173}
+  .calibration-panel details{margin-top:8px}
+  .calibration-panel summary{font-size:.8rem}
+
+  /* Keep the key launch-monitor numbers visible on phone. */
+  .result-panel .hero-metric{display:block!important;background:#fff;border:1px solid #d8e1dc;border-radius:14px;padding:14px 16px}
+  .result-panel .hero-metric strong{font-size:3rem;color:#0d5a46}
+  .result-panel .hero-metric>span{font-size:.68rem;color:#66776f}
+  .result-panel .hero-metric small{font-size:.7rem;color:#718178}
+  .result-panel .primary-metrics{display:grid!important;grid-template-columns:1fr 1fr;gap:10px}
+  .result-panel .primary-metrics article{background:#fff;border:1px solid #d8e1dc;border-radius:14px;padding:14px}
+  .result-panel .primary-metrics span{font-size:.65rem;color:#73827b}
+  .result-panel .primary-metrics strong{font-size:2rem;color:#403979}
+  .result-panel .primary-metrics em{font-size:.72rem;color:#66766f}
+  .result-head{margin-bottom:8px}
+  .secondary-metrics{margin-top:8px}
+  .detect-row{margin-top:8px}
+
+  /* More usable video height on iPhone while preserving the tracer overlay. */
+  .video-stage{height:54dvh;min-height:390px;max-height:620px}
+  .smart-shot-bar{top:8px;width:calc(100% - 16px)}
+  .smart-shot-bar>div{padding:8px 4px}
+
+  /* Make the mobile setup feel like an app rather than a desktop panel. */
+  .viewer-top{min-height:58px;padding:9px 12px}
+  .viewer-top b{font-size:.86rem}
+  .viewer-top button{min-height:38px;border-radius:9px}
+  .capture-controls{position:relative;z-index:3;border-radius:0 0 14px 14px}
+  .choose-video{min-height:46px;border-radius:10px;font-size:.84rem}
+  .mobile-nav{height:72px}
+  .app-shell{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+}
+
+@media (max-width:430px){
+  .calibration-fields{grid-template-columns:1fr 1fr}
+  .calibration-fields>label:first-child{grid-column:1/-1}
+  .calibration-panel header p{display:none}
+  .result-panel{padding:10px}
+  .result-panel .hero-metric strong{font-size:2.6rem}
+  .result-panel .primary-metrics strong{font-size:1.8rem}
+  .video-stage{height:50dvh;min-height:350px}
+}
