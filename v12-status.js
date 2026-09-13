@@ -7,14 +7,12 @@ fetch('/api/health',{cache:'no-store'}).then(r=>r.json()).then(r=>{
  else if(!r.camera_engine)els.resultNote.textContent='Camera dependencies are missing. Run INSTALL_CAMERA_ENGINE.bat.';
 }).catch(()=>{els.resultNote.textContent='Camera service is disconnected. Run START_BURKESHOT_V12.bat; opening the HTML alone does not analyse videos.';});
 
-// Rear-view v3 UI is initialised here so it is present even if the dynamically
-// loaded measurement script executes after DOMContentLoaded.
-(function setupRearV3Controls(){
+(function setupRearV4Controls(){
  const view=document.getElementById('calView');
  const fields=document.querySelector('.calibration-fields');
  if(!view||!fields)return;
  const rearOption=[...view.options].find(o=>o.value==='rear');
- if(rearOption)rearOption.textContent='Behind player · experimental 3-D v3';
+ if(rearOption)rearOption.textContent='Behind player · experimental 3-D v4';
 
  let distance=document.getElementById('rearDistance');
  let height=document.getElementById('rearHeight');
@@ -44,16 +42,21 @@ fetch('/api/health',{cache:'no-store'}).then(r=>r.json()).then(r=>{
   if(metres)metres.hidden=rear;
   if(mark)mark.hidden=rear;
   if(reference)reference.textContent=rear
-   ?'Rear v3: measure horizontally from the camera lens to the golf ball and enter the lens height. Keep the phone fixed behind the player.'
+   ?'Rear v4: measure horizontally from the camera lens to the golf ball and enter the lens height. Keep the phone fixed behind the player.'
    :'Use a measured horizontal reference along the target line, at the ball’s distance from the camera. Do not use a projected screen or a mat edge pointing away from the camera.';
  };
  view.addEventListener('change',sync);
  sync();
 })();
 
-// Load the rear-view v3 measurement engine with a new cache key.
 const rearV3=document.createElement('script');
-rearV3.src='/assets/rear-v3.js?v=3.2';
+rearV3.src='/assets/rear-v3.js?v=3.3';
 rearV3.async=false;
-rearV3.onload=()=>console.log('BURKESHOT rear-view v3.2 loaded');
+rearV3.onload=()=>{
+ const rearV4=document.createElement('script');
+ rearV4.src='/assets/rear-v4.js?v=4.0';
+ rearV4.async=false;
+ rearV4.onload=()=>console.log('BURKESHOT rear-view v4 loaded');
+ document.head.appendChild(rearV4);
+};
 document.head.appendChild(rearV3);
