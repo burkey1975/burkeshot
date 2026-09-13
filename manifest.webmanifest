@@ -1,0 +1,20 @@
+{
+  "name": "BurkeShot",
+  "short_name": "BurkeShot",
+  "description": "Phone-first golf shot tracking, rear-view launch estimation and practice simulator.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f2f6f3",
+  "theme_color": "#0d5a46",
+  "categories": ["sports", "utilities"],
+  "icons": [
+    {
+      "src": "/assets/burkeshot-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
