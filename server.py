@@ -128,9 +128,12 @@ def _run_analysis(
         with analysis_gate:
             if cancel.is_set():
                 raise InterruptedError("Analysis cancelled")
-            from analyzer import analyze_video
 
-            result = analyze_video(
+            import analyzer
+            from ronde_adapter import install as install_ronde_tracker
+
+            install_ronde_tracker(analyzer)
+            result = analyzer.analyze_video(
                 path,
                 capture_fps,
                 capture_mode,
@@ -163,7 +166,13 @@ def health() -> dict[str, Any]:
         import cv2  # noqa: F401
         import numpy  # noqa: F401
 
-        return {"status": "ready", "version": 12, "camera_engine": True, "timestamp_engine": "pyav"}
+        return {
+            "status": "ready",
+            "version": 12,
+            "camera_engine": True,
+            "timestamp_engine": "pyav",
+            "ball_tracking_engine": "ronde_evidence_gate_v1",
+        }
     except Exception as exc:
         return {"status": "missing_engine", "version": 12, "camera_engine": False, "error": str(exc)}
 
