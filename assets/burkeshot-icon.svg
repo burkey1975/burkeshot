@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="BurkeShot app icon">
+  <rect width="512" height="512" rx="112" fill="#0d5a46"/>
+  <path d="M112 116h162c73 0 118 36 118 91 0 40-24 69-66 82 53 10 82 42 82 89 0 65-52 106-137 106H112V116zm93 77v62h61c27 0 43-11 43-31 0-21-16-31-45-31h-59zm0 132v76h70c32 0 50-13 50-38 0-25-18-38-52-38h-68z" fill="#ffffff"/>
+  <circle cx="390" cy="118" r="36" fill="#dbf985"/>
+  <path d="M364 118h52M390 92v52" stroke="#0d5a46" stroke-width="8" stroke-linecap="round"/>
+</svg>
