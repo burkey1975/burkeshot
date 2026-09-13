@@ -67,3 +67,9 @@ rearV3.onload=()=>{
  document.head.appendChild(rearV4);
 };
 document.head.appendChild(rearV3);
+
+// Installable mobile-web-app layer (manifest, iPhone helper and service worker).
+const pwa=document.createElement('script');
+pwa.src='/assets/pwa.js?v=1.0';
+pwa.async=false;
+document.head.appendChild(pwa);
