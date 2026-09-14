@@ -21,6 +21,15 @@
   ensureMeta('apple-mobile-web-app-status-bar-style','default');
   ensureMeta('apple-mobile-web-app-title','BurkeShot');
 
+  // Load the visual-only trajectory continuation layer after the core UI exists.
+  if(!document.querySelector('script[data-burkeshot-continuation]')){
+    const continuation=document.createElement('script');
+    continuation.src='/assets/trajectory-continuation-v4.js?v=1.0';
+    continuation.async=false;
+    continuation.dataset.burkeshotContinuation='1';
+    head.appendChild(continuation);
+  }
+
   const localHost=['localhost','127.0.0.1','::1'].includes(location.hostname);
   const canRegister=window.isSecureContext||localHost;
   if('serviceWorker' in navigator&&canRegister){
