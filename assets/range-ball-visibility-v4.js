@@ -40,18 +40,22 @@
   raf=requestAnimationFrame(tick);
  }
  function patch(Ctor){
-  if(!Ctor?.prototype||Ctor.prototype.__burkeshotBallVisibilityV4)return;
-  const original=Ctor.prototype.playShot;if(typeof original!=='function')return;
+  if(!Ctor?.prototype||Ctor.prototype.__burkeshotBallVisibilityV4)return false;
+  const original=Ctor.prototype.playShot;if(typeof original!=='function')return false;
   Ctor.prototype.playShot=function(path,done){animate(path);return original.call(this,path,done)};
-  Ctor.prototype.__burkeshotBallVisibilityV4=true;
+  Ctor.prototype.__burkeshotBallVisibilityV4=true;return true;
  }
- function install(){
-  patch(window.BurkeRangeHD);patch(window.BurkeSoftwareRange);
-  // Fix the stale camera badge whenever a rear-v4 result is shown.
-  const r=window.currentResult||null;if(r?.calibration?.mode==='rear_perspective_v4'&&window.els?.geometry)els.geometry.textContent='REAR VIEW V4';
+ function globals(){
+  const HD=typeof BurkeRangeHD!=='undefined'?BurkeRangeHD:window.BurkeRangeHD;
+  const SW=typeof BurkeSoftwareRange!=='undefined'?BurkeSoftwareRange:window.BurkeSoftwareRange;
+  const ui=typeof els!=='undefined'?els:window.els;
+  const result=typeof currentResult!=='undefined'?currentResult:window.currentResult;
+  return{HD,SW,ui,result};
  }
- window.addEventListener('burkeshot-analysis-complete',e=>{if(e.detail?.calibration?.mode==='rear_perspective_v4'&&window.els?.geometry)els.geometry.textContent='REAR VIEW V4'});
+ function fixBadge(result){const g=globals();if(result?.calibration?.mode==='rear_perspective_v4'&&g.ui?.geometry)g.ui.geometry.textContent='REAR VIEW V4'}
+ function install(){const g=globals();const ok=patch(g.HD)|patch(g.SW);fixBadge(g.result);return!!ok}
+ window.addEventListener('burkeshot-analysis-complete',e=>fixBadge(e.detail));
  window.addEventListener('burkeshot-analysis-start',stop);
- let tries=0;const timer=setInterval(()=>{install();if((window.BurkeRangeHD||window.BurkeSoftwareRange)||++tries>80)clearInterval(timer)},100);
+ let tries=0;const timer=setInterval(()=>{if(install()||++tries>80)clearInterval(timer)},100);
  install();
 })();
