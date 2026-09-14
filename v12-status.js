@@ -73,3 +73,13 @@ const pwa=document.createElement('script');
 pwa.src='/assets/pwa.js?v=1.0';
 pwa.async=false;
 document.head.appendChild(pwa);
+
+// FairwayFX-style trace review: drag auto-tracked points and recalculate rear-view v4.
+const traceCss=document.createElement('link');
+traceCss.rel='stylesheet';
+traceCss.href='/assets/trace-editor-v4.css?v=1.0';
+document.head.appendChild(traceCss);
+const traceEditor=document.createElement('script');
+traceEditor.src='/assets/trace-editor-v4.js?v=1.0';
+traceEditor.async=false;
+document.head.appendChild(traceEditor);
