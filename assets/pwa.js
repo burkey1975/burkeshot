@@ -30,6 +30,15 @@
     head.appendChild(continuation);
   }
 
+  // Improve simulator ball visibility without changing any measured numbers or flight physics.
+  if(!document.querySelector('script[data-burkeshot-range-ball]')){
+    const tracker=document.createElement('script');
+    tracker.src='/assets/range-ball-visibility-v4.js?v=1.0';
+    tracker.async=false;
+    tracker.dataset.burkeshotRangeBall='1';
+    head.appendChild(tracker);
+  }
+
   const localHost=['localhost','127.0.0.1','::1'].includes(location.hostname);
   const canRegister=window.isSecureContext||localHost;
   if('serviceWorker' in navigator&&canRegister){
