@@ -1,0 +1,17 @@
+@media (max-width:760px){
+ .trace-editor-v4{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:12px 14px;margin:0 0 10px;border:1px solid rgba(80,110,102,.22);border-radius:14px;background:#f7faf8;box-shadow:0 8px 22px rgba(18,37,30,.08)}
+ .trace-editor-copy{display:flex;flex-direction:column;gap:2px;min-width:0}
+ .trace-editor-copy b{font-size:11px;letter-spacing:.12em;color:#183b31}
+ .trace-editor-copy span{font-size:12px;color:#62736e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:44vw}
+ .trace-editor-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+ .trace-editor-v4 button{min-height:42px;border-radius:10px;padding:0 12px;font-size:11px;font-weight:800;letter-spacing:.03em}
+ #traceEditBtn,#traceApplyBtn{background:#103f32;color:white;border:0}
+ #traceUndoBtn,#traceCancelBtn{background:white;border:1px solid #cbd7d3;color:#183b31}
+ #trackingCanvas.trace-editing{touch-action:none;cursor:grab;z-index:12}
+}
+@media (min-width:761px){
+ .trace-editor-v4{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 12px;margin-top:8px;border:1px solid #303a37;border-radius:8px;background:#151b19}
+ .trace-editor-copy{display:flex;flex-direction:column;gap:2px}.trace-editor-copy b{font-size:11px;letter-spacing:.12em}.trace-editor-copy span{font-size:12px;color:#9aa5a1}
+ .trace-editor-actions{display:flex;gap:8px}.trace-editor-v4 button{min-height:36px;padding:0 12px}
+ #trackingCanvas.trace-editing{touch-action:none;cursor:grab;z-index:12}
+}
